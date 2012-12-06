@@ -1,7 +1,6 @@
 module.exports = function(dbname, colname, server) {
-    var mongo = require('mongodb');
-
     if (!server) {
+        var mongo = require('mongodb');
         var Server = mongo.Server,
         Db = mongo.Db;
 
