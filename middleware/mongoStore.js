@@ -1,10 +1,13 @@
-module.exports = function(dbname, colname) {
+module.exports = function(dbname, colname, server) {
     var mongo = require('mongodb');
 
-    var Server = mongo.Server,
-    Db = mongo.Db;
+    if (!server) {
+        var Server = mongo.Server,
+        Db = mongo.Db;
 
-    var server = new Server('localhost', 27017, {auto_reconnect: true});
+        server = new Server('localhost', 27017, {auto_reconnect: true});
+    }
+
     db = new Db(dbname, server, {safe: true});
 
     db.open(function(err, db) {
