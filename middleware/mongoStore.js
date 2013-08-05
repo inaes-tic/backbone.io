@@ -1,5 +1,6 @@
-module.exports = function(db, colname) {
+module.exports = function(db, colname, options) {
     var mongo = require('mongoskin');
+    var _ = require('underscore');
 
     var self = this;
     if (typeof db == "string") {
@@ -51,11 +52,83 @@ module.exports = function(db, colname) {
                         }
                     });
                 } else {
-                    collection.find().toArray(function(err, items) {
+                    var data = {
+                        query: {},
+                        page: 0,
+                        per_page: 0,
+                        total_pages: null,
+                        total_entries: null,
+                        sort_by: { $natural: -1 },
+                        order: '',
+                        fields: {},
+                        max_items: 100
+                    };
+                    var query = {};
+                    var expressions = [];
+
+                    data  = _.defaults(req.options.data, data);
+                    query = _.omit(data.query, 'text');
+
+                    // validations
+                    if(options.search) {
+                        if(data.fields) {
+                            _.map(data.fields, function(field) {
+                                var ok = _.contains(options.search.facets, field);
+                                if (!ok) {
+                                    res.end({'error':'Facet field is not valid - read ' + field});
+                                }
+                            });
+                        }
+                        _.map(_.keys(query), function(key) {
+                            var ok = _.contains(options.search.facets, key);
+                            if (!ok) {
+                                res.end({'error':'query field is not valid - read ' + key});
+                            }
+                        });
+
+                        data.max_items = options.search.max_facets;
+                    }
+
+                    // Creating mongo expression using text search string
+                    if(_.has(data.query,'text')) {
+                        _.forEach(options.search.fulltxt, function(field) {
+                            var obj= {};
+                            obj[field] = new RegExp(data.query.text);
+                            expressions.push(obj);
+                        });
+                        _.extend(query, {$or: expressions})
+                    }
+
+                    //XXX maybe this is not bests option for all cases
+                    //check if value is Numeric to change type for search
+                    query = _.object( _.keys(query), _.map(query, function(val) {
+                        var is_num = !isNaN(parseFloat(val)) && isFinite(val)
+                        return (is_num) ? Number(val) : val;
+                    }));
+
+                    //Generating prjection to show in mongo way {field1: 1, field2: 1}
+                    var fields = _.object(data.fields, _.map(data.fields, function(i) { return 1; }));
+
+                    var sort = data.sort_by;
+                    if(data.sort_by && data.order) {
+                        sort[data.sort_by] = data.order;
+                    }
+
+                    var limit = data.per_page || data.max_items;
+                    var skip = data.page * data.per_page;
+
+                    var q = collection.find(query, fields).limit(limit).skip(skip).sort(sort);
+                    q.count(function(err, total) {
                         if (err) {
-                            res.end({'error':'An error has occurred on read ' + err});
+                            res.end({'error':'An error has occurred on count - read ' + err});
                         } else {
-                            res.end(items);
+                            q.toArray(function (err, items) {
+                                if (err) {
+                                    res.end({'error':'An error has occurred on read ' + err});
+                                } else {
+                                    res.end([ { total_entries: total }, items]);
+                                }
+                            });
                         }
                     });
                 }
