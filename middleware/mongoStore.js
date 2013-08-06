@@ -66,7 +66,10 @@ module.exports = function(db, colname, options) {
                     var query = {};
                     var expressions = [];
 
-                    data  = _.defaults(req.options.data, data);
+                    if ('data' in req.options) {
+                        data  = _.defaults(req.options.data, data);
+                    }
+
                     query = _.omit(data.query, 'text');
 
                     // validations
