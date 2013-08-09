@@ -61,6 +61,7 @@ module.exports = function(db, colname, options) {
                         sort_by: { $natural: -1 },
                         order: '',
                         fields: {},
+                        criteria: {},
                         max_items: 100
                     };
                     var query = {};
@@ -70,7 +71,7 @@ module.exports = function(db, colname, options) {
                         data  = _.defaults(req.options.data, data);
                     }
 
-                    query = _.omit(data.query, 'text');
+                    query = _.omit(data.query, ['text', 'criteria']);
 
                     // validations
                     if(options.search) {
@@ -89,12 +90,40 @@ module.exports = function(db, colname, options) {
                             }
                         });
 
+                        if(_.has(options.search, 'criteria') && _.has(data.query, 'criteria')) {
+                            var criteria_keys   = _.keys(data.query.criteria);
+                            var criteria_values = _.values(data.query.criteria);
+                            var options_keys    = _.keys(options.search.criteria);
+                            var options_values  = _.values(options.search.criteria);
+
+                            if (!(_.difference(criteria_keys, options_keys))) {
+                                res.end({'error':'criteria is not valid - read ' + criteria_keys });
+                            }
+
+                            if(!(_.every(criteria_values, function(val) { return _.isArray(val); }))) {
+                                res.end({'error':'criteria is not an array - read '});
+                            }
+                        }
+
                         data.max_items = options.search.max_facets;
+                    }
+
+                    //Creating criterias from collection search config and request data
+                    if(_.has(data.query, 'criteria')) {
+                        var criteria = _.reduce(data.query.criteria, function(memo, criteria, key) {
+                            var replace_str = "%value%";
+                            var options_key = options.search.criteria[key];
+                            _.forEach(criteria, function(param) {
+                                options_key = options_key.replace(replace_str, param);
+                            });
+                            return _.extend(memo, JSON.parse(options_key));
+                        }, {});
+                        _.extend(query, criteria);
                     }
 
                     // Creating mongo expression using text search string
                     if(_.has(data.query,'text')) {
-                        _.forEach(options.search.fulltxt, function(field) {
+                        _.forEach(options.search.fulltext, function(field) {
                             var obj= {};
                             obj[field] = new RegExp(data.query.text);
                             expressions.push(obj);
