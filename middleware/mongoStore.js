@@ -1,5 +1,6 @@
 module.exports = function(db, colname, options) {
     var mongo = require('mongoskin');
+	var BSON = mongo.BSONPure;
 
     var self = this;
     if (typeof db == "string") {
@@ -61,7 +62,7 @@ module.exports = function(db, colname, options) {
 
                 var id = req.model._id;
 
-                collection.update({'_id': id}, item, {safe:true}, function(err, result) {
+                collection.update({'_id': new BSON.ObjectID(id)}, item, {safe:true}, function(err, result) {
                     item['_id'] = req.model._id;
                     if (err) {
                         res.end({'error':'An error has occurred on update ' + err});
@@ -73,7 +74,7 @@ module.exports = function(db, colname, options) {
 
             delete: function() {
                 var id = req.model._id;
-                collection.remove({'_id': id}, {safe:true}, function(err, result) {
+                collection.remove({'_id': new BSON.ObjectID(id)}, {safe:true}, function(err, result) {
                     if (err) {
                         res.end({'error':'An error has occurred on delete' + err});
                     } else {
